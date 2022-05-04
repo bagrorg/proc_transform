@@ -113,6 +113,36 @@ TEST(TransformTestsStatic, BigTest) {
     }
 }
 
+TEST(TransformTestsStatic, ErrorTest) {
+    auto func = [](int x) {
+        return x / 0;
+    };
+
+    std::vector<int> v(100, 1);
+    bool failed = false;
+    try {
+        auto ans = TransformWithProcesses<STAT>(v, func, 16);
+    } catch (std::exception &e) {
+        failed = true;
+    }
+    ASSERT_TRUE(failed);
+}
+
+TEST(TransformTestsDynamic, ErrorTest) {
+    auto func = [](int x) {
+        return x / 0;
+    };
+
+    std::vector<int> v(100, 1);
+    bool failed = false;
+    try {
+        auto ans = TransformWithProcesses<DYN>(v, func, 16);
+    } catch (std::exception &e) {
+        failed = true;
+    }
+    ASSERT_TRUE(failed);
+}
+
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
