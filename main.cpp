@@ -12,7 +12,7 @@ bool is_in_sphere(Point p) {
 
 int main() {
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    auto ans = TransformWithProcesses(data, [](int x) {return x * 3 + x * 2;}, 3);
+    auto ans = TransformWithProcesses<DYN>(data, [](int x) {return x * 3 + x * 2;}, 3);
     //std::cout << ans.size() << std::endl;
     for (auto e: ans) {
         std::cout << e << std::endl;
