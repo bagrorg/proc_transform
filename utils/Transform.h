@@ -48,6 +48,7 @@ void dynamic_worker_private(SharedArray<B>& data_new, R& data_old, F f, SharedAt
     }
 }
 
+//TODO need this templates?
 template <typename R,
           typename F,
           typename A = std::ranges::range_value_t<R>,
@@ -60,26 +61,44 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
     size_t position = 0;
 
     SharedArray<B> arr(range_size);
+    std::vector<pid_t> childs;
 
     for (int i = 0; i < nprocesses; i++) {
-        pid_t pid = fork();
+        errno = 0;
+        pid_t pid_f = fork();
 
-        switch (pid) {
+        switch (pid_f) {
             case 0: {
                 worker_private(arr, range, position, work_size, f);
-                exit(EXIT_SUCCESS); // TODO ??
+                exit(EXIT_SUCCESS);
             }
             case -1:
-                std::cerr << "Something went wrong" << std::endl;
-                exit(EXIT_FAILURE); // TODO operate safier: kill all childs? continue?
+                for (pid_t pid: childs) {
+                    kill(pid, SIGKILL);
+                }
+                throw std::runtime_error("Error with fork: " + std::string(strerror(errno)));
             default:
+                childs.push_back(pid_f);
                 position += work_size;
                 break;
         }
     }
-    pid_t wpid;
-    int status = 0;
-    while ((wpid = wait(&status)) > 0);
+
+    for (pid_t pid: childs) {
+        int status;
+        while (true) {
+            errno = 0;
+            pid_t ret = waitpid(pid, &status, 0);
+            if (ret < 0) {
+                for (pid_t pid_to_kill: childs) {
+                    kill(pid_to_kill,SIGKILL);
+                }
+                throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
+            }
+
+            if (WIFEXITED(status)) break;
+        }
+    }
 
     return arr;
 }
@@ -97,26 +116,44 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
 
     SharedArray<B> arr(range_size);
     SharedAtomicVariable<size_t> sync_offset;
+    std::vector<pid_t> childs;
+
 
     for (int i = 0; i < nprocesses; i++) {
-        pid_t pid = fork();
+        pid_t pid_f = fork();
 
-        switch (pid) {
+        switch (pid_f) {
             case 0: {
                 dynamic_worker_private(arr, range, f, sync_offset, 8);
-                exit(EXIT_SUCCESS); // TODO ??
+                exit(EXIT_SUCCESS);
             }
             case -1:
-                std::cerr << "Something went wrong" << std::endl;
-                exit(EXIT_FAILURE); // TODO operate safier: kill all childs? continue?
+                for (pid_t pid: childs) {
+                    kill(pid, SIGKILL);
+                }
+                throw std::runtime_error("Error with fork: " + std::string(strerror(errno)));
             default:
+                childs.push_back(pid_f);
                 cur_size += work_size;
                 break;
         }
     }
-    pid_t wpid;
-    int status = 0;
-    while ((wpid = wait(&status)) > 0);
+
+    for (pid_t pid: childs) {
+        int status;
+        while (true) {
+            errno = 0;
+            pid_t ret = waitpid(pid, &status, 0);
+            if (ret < 0) {
+                for (pid_t pid_to_kill: childs) {
+                    kill(pid_to_kill,SIGKILL);
+                }
+                throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
+            }
+
+            if (WIFEXITED(status)) break;
+        }
+    }
 
     return arr;
 }
