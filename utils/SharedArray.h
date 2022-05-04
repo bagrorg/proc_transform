@@ -58,7 +58,7 @@ class SharedAtomicVariable : public SharedArray<T> {
 public:
     SharedAtomicVariable() : SharedArray<T>(1) {
         sem_ptr = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0); //todo make errno
-        if (ptr == MAP_FAILED) {
+        if (sem_ptr == MAP_FAILED) {
             throw std::runtime_error("Something went wrong with map");
         }
         sem = reinterpret_cast<sem_t*>(sem_ptr);   //is it good to make it one
