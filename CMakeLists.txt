@@ -18,5 +18,6 @@ set(
 add_executable(main
         ${transform_src}
         main.cpp)
+target_link_libraries(main pthread)
 
 add_subdirectory(tests)
