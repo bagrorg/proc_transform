@@ -49,6 +49,12 @@ void dynamic_worker_private(SharedArray<B>& data_new, R& data_old, F f, SharedAt
     }
 }
 
+void clearChilds(const std::vector<pid_t> &childs) {
+    for (pid_t pid: childs) {
+        kill(pid, SIGKILL);
+    }
+}
+
 //TODO need this templates?
 template <typename R,
           typename F,
@@ -74,9 +80,7 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
                 exit(EXIT_SUCCESS);
             }
             case -1:
-                for (pid_t pid: childs) {
-                    kill(pid, SIGKILL);
-                }
+                clearChilds(childs);
                 throw std::runtime_error("Error with fork: " + std::string(strerror(errno)));
             default:
                 childs.push_back(pid_f);
@@ -91,9 +95,7 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
             errno = 0;
             pid_t ret = waitpid(pid, &status, 0);
             if (ret < 0) {
-                for (pid_t pid_to_kill: childs) {
-                    kill(pid_to_kill,SIGKILL);
-                }
+                clearChilds(childs);
                 throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
             }
 
@@ -119,7 +121,6 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
     SharedAtomicVariable<size_t> sync_offset;
     std::vector<pid_t> childs;
 
-
     for (int i = 0; i < nprocesses; i++) {
         pid_t pid_f = fork();
 
@@ -129,9 +130,7 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
                 exit(EXIT_SUCCESS);
             }
             case -1:
-                for (pid_t pid: childs) {
-                    kill(pid, SIGKILL);
-                }
+                clearChilds(childs);
                 throw std::runtime_error("Error with fork: " + std::string(strerror(errno)));
             default:
                 childs.push_back(pid_f);
@@ -146,9 +145,7 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
             errno = 0;
             pid_t ret = waitpid(pid, &status, 0);
             if (ret < 0) {
-                for (pid_t pid_to_kill: childs) {
-                    kill(pid_to_kill,SIGKILL);
-                }
+                clearChilds(childs);
                 throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
             }
 
