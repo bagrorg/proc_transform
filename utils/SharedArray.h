@@ -70,6 +70,10 @@ public:
         }
     }
 
+    SharedAtomicVariable(T value) : SharedAtomicVariable() {
+        *(this->ptr_data_type) = value;
+    }
+
     ~SharedAtomicVariable() {
         munmap(sem_ptr, sizeof(sem_t));
     }

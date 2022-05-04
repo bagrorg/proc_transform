@@ -76,7 +76,11 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
 
         switch (pid_f) {
             case 0: {
-                worker_private(arr, range, position, work_size, f);
+                try {
+                    worker_private(arr, range, position, work_size, f);
+                } catch (std::exception &e) {
+                    exit(EXIT_FAILURE);
+                }
                 exit(EXIT_SUCCESS);
             }
             case -1:
@@ -89,17 +93,23 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
         }
     }
 
-    for (pid_t pid: childs) {
-        int status;
-        while (true) {
-            errno = 0;
-            pid_t ret = waitpid(pid, &status, 0);
-            if (ret < 0) {
-                clearChilds(childs);
-                throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
-            }
+    size_t processes_over = 0;
+    int status;
+    while (processes_over < childs.size()) {
+        errno = 0;
+        pid_t ret = waitpid(-1, &status, 0);
+        if (ret < 0) {
+            clearChilds(childs);
+            throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
+        }
 
-            if (WIFEXITED(status)) break;
+        if (WIFEXITED(status)) {
+            if (WEXITSTATUS(status) != 0) {
+                
+                clearChilds(childs);
+                throw std::runtime_error("Some of processes ended with non-zero code!");
+            }
+            processes_over += 1;
         }
     }
 
@@ -126,7 +136,11 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
 
         switch (pid_f) {
             case 0: {
-                dynamic_worker_private(arr, range, f, sync_offset, 8);
+                try {
+                    dynamic_worker_private(arr, range, f, sync_offset, 8);
+                } catch (std::exception &e) {
+                    exit(EXIT_FAILURE);
+                }
                 exit(EXIT_SUCCESS);
             }
             case -1:
@@ -139,19 +153,25 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
         }
     }
 
-    for (pid_t pid: childs) {
-        int status;
-        while (true) {
-            errno = 0;
-            pid_t ret = waitpid(pid, &status, 0);
-            if (ret < 0) {
-                clearChilds(childs);
-                throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
-            }
+    size_t processes_over = 0;
+    int status;
+    while (processes_over < childs.size()) {
+        errno = 0;
+        pid_t ret = waitpid(-1, &status, 0);
+        if (ret < 0) {
+            clearChilds(childs);
+            throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
+        }
 
-            if (WIFEXITED(status)) break;
+        if (WIFEXITED(status)) {
+            if (WEXITSTATUS(status) != 0) {
+                clearChilds(childs);
+                throw std::runtime_error("Some of processes ended with non-zero code!");
+            }
+            processes_over += 1;
         }
     }
+    
 
     return arr;
 }
