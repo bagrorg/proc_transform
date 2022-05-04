@@ -6,6 +6,7 @@
 #include <ranges>
 #include <iostream>
 #include <wait.h>
+#include <cstring>
 
 enum TransformVersion { STAT, DYN };
 
