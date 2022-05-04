@@ -52,7 +52,7 @@ TEST(TransformTestsDynamic, BigTest) {
 
     std::vector<int> v(10000);
     std::iota(v.begin(), v.end(), 0);
-    auto ans = TransformWithProcesses<DYN>(v, func, 3);
+    auto ans = TransformWithProcesses<DYN>(v, func, 16);
     for (int i = 0; i < v.size(); i++) {
         ASSERT_EQ(ans[i], func(v[i]));
     }
@@ -107,7 +107,7 @@ TEST(TransformTestsStatic, BigTest) {
 
     std::vector<int> v(10000);
     std::iota(v.begin(), v.end(), 0);
-    auto ans = TransformWithProcesses<STAT>(v, func, 3);
+    auto ans = TransformWithProcesses<STAT>(v, func, 16);
     for (int i = 0; i < v.size(); i++) {
         ASSERT_EQ(ans[i], func(v[i]));
     }

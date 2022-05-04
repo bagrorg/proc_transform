@@ -52,25 +52,27 @@ protected:
 };
 
 template <typename T>
-class SharedAtomicArray : public SharedArray<T> { 
+class SharedAtomicVariable : public SharedArray<T> {
 public:
-    explicit SharedAtomicArray(size_t size) : SharedArray<T>(size) {
+    SharedAtomicVariable() : SharedArray<T>(1) {
         sem_ptr = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0); //todo make errno
         sem = reinterpret_cast<sem_t*>(sem_ptr);   //is it good to make it one
         sem_init(sem, 1, 1);    //todo make errno
     }
 
-    ~SharedAtomicArray() {
+    ~SharedAtomicVariable() {
         munmap(sem_ptr, sizeof(sem_t));
     }
     
-    bool atomicSet(size_t id, T value, T expected) {
+    bool cas(T &expected, T value) {
         bool res = false;
         sem_wait(sem);
-        if (this->ptr_data_type[id] == expected) {
+        T cur = *(this->ptr_data_type);
+        if (*(this->ptr_data_type) == expected) {
             res = true;
-            this->ptr_data_type[id] = value;
+            *(this->ptr_data_type) = value;
         }
+        expected = cur;
         sem_post(sem);
         return res;
     }
