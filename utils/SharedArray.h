@@ -9,12 +9,12 @@
 template <typename T>
 class SharedArray {
 public:
-    SharedArray(size_t size) : size_(size) {
+    explicit SharedArray(size_t size) : size_(size) {
         ptr = mmap(NULL, sizeof(T) * size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-        ptr_data_type = reinterpret_cast<T *>(ptr);
         if (ptr == MAP_FAILED) {
             throw std::runtime_error("Something went wrong with map");
         }
+        ptr_data_type = reinterpret_cast<T *>(ptr);
     }
 
     ~SharedArray() {
@@ -54,7 +54,7 @@ protected:
 template <typename T>
 class SharedAtomicArray : public SharedArray<T> { 
 public:
-    SharedAtomicArray(size_t size) : SharedArray<T>(size) {
+    explicit SharedAtomicArray(size_t size) : SharedArray<T>(size) {
         sem_ptr = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0); //todo make errno
         sem = reinterpret_cast<sem_t*>(sem_ptr);   //is it good to make it one
         sem_init(sem, 1, 1);    //todo make errno

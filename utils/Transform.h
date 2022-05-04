@@ -56,7 +56,7 @@ template <typename R,
           typename B = typename std::invoke_result<F, A>::type,
           typename std::enable_if<std::is_trivially_copyable<B>::value, bool>::type = true>
 requires (InputContiguousRange<R>, StatelessFunction<F, A>, std::ranges::range<SharedArray<B>>)
-SharedArray<B> TransformWithProcesses(R&& range, F&& f, int nprocesses) {
+SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses) {
     size_t range_size = range.size();
     size_t work_size = std::ceil((float) range_size / nprocesses);
     size_t cur_size = 0;
