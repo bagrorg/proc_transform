@@ -57,14 +57,14 @@ template <typename T>
 class SharedAtomicVariable : public SharedArray<T> {
 public:
     SharedAtomicVariable() : SharedArray<T>(1) {
-        sem_ptr = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0); //todo make errno
+        sem_ptr = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
         if (sem_ptr == MAP_FAILED) {
             throw std::runtime_error("Something went wrong with map");
         }
-        sem = reinterpret_cast<sem_t*>(sem_ptr);   //is it good to make it one
+        sem = reinterpret_cast<sem_t*>(sem_ptr);
 
         errno = 0;
-        int ret = sem_init(sem, 1, 1);    //todo make errno
+        int ret = sem_init(sem, 1, 1);
         if (ret < 0) {
             throw std::runtime_error("Something wrong with semaphore: " + std::string(strerror(errno)));
         }
