@@ -145,6 +145,42 @@ TEST(TransformTestsDynamic, ErrorTest) {
     ASSERT_TRUE(failed);
 }
 
+TEST(TransformTestsDynamic, ErrorTestSleep) {
+    auto func = [](int x) {
+        sleep(x % 3 + 1);
+        throw std::runtime_error("Test error");
+        return x;
+    };
+
+    std::vector<int> v(100);
+    std::iota(v.begin(), v.end(), 0);
+    bool failed = false;
+    try {
+        auto ans = TransformWithProcesses<DYN>(v, func, 16);
+    } catch (std::exception &e) {
+        failed = true;
+    }
+    ASSERT_TRUE(failed);
+}
+
+TEST(TransformTestsStatic, ErrorTestSleep) {
+    auto func = [](int x) {
+        sleep(x % 3 + 1);
+        throw std::runtime_error("Test error");
+        return x;
+    };
+
+    std::vector<int> v(100);
+    std::iota(v.begin(), v.end(), 0);
+    bool failed = false;
+    try {
+        auto ans = TransformWithProcesses<STAT>(v, func, 16);
+    } catch (std::exception &e) {
+        failed = true;
+    }
+    ASSERT_TRUE(failed);
+}
+
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

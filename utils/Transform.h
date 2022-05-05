@@ -54,9 +54,7 @@ void clearChilds(const std::vector<pid_t> &childs) {
         errno = 0;
         int ret = kill(pid, SIGKILL);
         if (ret < 0) {
-            if (errno == ESRCH) {
-                std::cerr << "kill(): No such process with pid = " << pid << std::endl;
-            } else {
+            if (errno != ESRCH) {
                 std::cerr << "kill(): Unreachable code (" << strerror(errno) << ")" << std::endl;
             }
         }
