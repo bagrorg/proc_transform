@@ -27,7 +27,7 @@ template <typename R,
 requires (InputContiguousRange<R>, StatelessFunction<F, A>, std::ranges::range<SharedArray<B>>)
 void worker_private(SharedArray<B>& data_new, R& data_old, size_t position, size_t work_size, F f) {
     for (size_t i = position; i < position + work_size && i < data_old.size(); i++) {
-        data_new.set(i, f(data_old.data()[i]));
+        data_new.set(i, f(*(data_old.begin() + i)));
     }
 }
 
@@ -44,7 +44,7 @@ void dynamic_worker_private(SharedArray<B>& data_new, R& data_old, F f, SharedAt
         if (current_offset >= data_old.size()) break;
 
         for (size_t i = current_offset; i < current_offset + M && i < data_old.size(); i++) {
-            data_new.set(i, f(data_old.data()[i]));
+            data_new.set(i, f(*(data_old.begin() + i)));
         }
     }
 }
@@ -52,6 +52,28 @@ void dynamic_worker_private(SharedArray<B>& data_new, R& data_old, F f, SharedAt
 void clearChilds(const std::vector<pid_t> &childs) {
     for (pid_t pid: childs) {
         kill(pid, SIGKILL);
+    }
+}
+
+void waitForChilds(const std::vector<pid_t> &childs) {
+    size_t processes_over = 0;
+    int status;
+    while (processes_over < childs.size()) {
+        errno = 0;
+        pid_t ret = waitpid(-1, &status, 0);
+        if (ret < 0) {
+            clearChilds(childs);
+            throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
+        }
+
+        if (WIFEXITED(status)) {
+            if (WEXITSTATUS(status) != 0) {
+                
+                clearChilds(childs);
+                throw std::runtime_error("Some of processes ended with non-zero code!");
+            }
+            processes_over += 1;
+        }
     }
 }
 
@@ -93,26 +115,8 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
         }
     }
 
-    size_t processes_over = 0;
-    int status;
-    while (processes_over < childs.size()) {
-        errno = 0;
-        pid_t ret = waitpid(-1, &status, 0);
-        if (ret < 0) {
-            clearChilds(childs);
-            throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
-        }
-
-        if (WIFEXITED(status)) {
-            if (WEXITSTATUS(status) != 0) {
-                
-                clearChilds(childs);
-                throw std::runtime_error("Some of processes ended with non-zero code!");
-            }
-            processes_over += 1;
-        }
-    }
-
+    
+    waitForChilds(childs);
     return arr;
 }
 
@@ -132,6 +136,7 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
     std::vector<pid_t> childs;
 
     for (int i = 0; i < nprocesses; i++) {
+        errno = 0;
         pid_t pid_f = fork();
 
         switch (pid_f) {
@@ -153,26 +158,7 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
         }
     }
 
-    size_t processes_over = 0;
-    int status;
-    while (processes_over < childs.size()) {
-        errno = 0;
-        pid_t ret = waitpid(-1, &status, 0);
-        if (ret < 0) {
-            clearChilds(childs);
-            throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
-        }
-
-        if (WIFEXITED(status)) {
-            if (WEXITSTATUS(status) != 0) {
-                clearChilds(childs);
-                throw std::runtime_error("Some of processes ended with non-zero code!");
-            }
-            processes_over += 1;
-        }
-    }
-    
-
+    waitForChilds(childs);
     return arr;
 }
 
