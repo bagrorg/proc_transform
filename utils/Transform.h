@@ -51,31 +51,58 @@ void dynamic_worker_private(SharedArray<B>& data_new, R& data_old, F f, SharedAt
 
 void clearChilds(const std::vector<pid_t> &childs) {
     for (pid_t pid: childs) {
-        kill(pid, SIGKILL);
+        errno = 0;
+        int ret = kill(pid, SIGKILL);
+        if (ret < 0) {
+            if (errno == ESRCH) {
+                std::cerr << "kill(): No such process with pid = " << pid << std::endl;
+            } else {
+                std::cerr << "kill(): Unreachable code (" << strerror(errno) << ")" << std::endl;
+            }
+        }
     }
 }
 
-void waitForChilds(const std::vector<pid_t> &childs) {
+enum Mode { COMMON, EMERGENCE };
+void waitForChilds(const std::vector<pid_t> &childs, Mode m = Mode::COMMON) {
     size_t processes_over = 0;
     int status;
     while (processes_over < childs.size()) {
         errno = 0;
         pid_t ret = waitpid(-1, &status, 0);
         if (ret < 0) {
-            clearChilds(childs);
-            throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
+            if (errno == ECHILD) {
+                break;
+            }
+
+            if (m == Mode::EMERGENCE) {
+                std::cerr << "waitpid(): Fatal error while waiting (" << strerror(errno) << ")" << std::endl;
+            } else {
+                clearChilds(childs);
+                waitForChilds(childs, Mode::EMERGENCE);
+                throw std::runtime_error("Something wrong while waiting: " + std::string(strerror(errno)));
+            }
         }
 
         if (WIFEXITED(status)) {
-            if (WEXITSTATUS(status) != 0) {
-                
-                clearChilds(childs);
-                throw std::runtime_error("Some of processes ended with non-zero code!");
-            }
             processes_over += 1;
         }
     }
 }
+
+struct FailedListener {
+    SharedAtomicVariable<bool> failed = SharedAtomicVariable<bool>(false);
+
+    void operator()(std::vector<pid_t> &childs) {
+        bool expected = false;
+        failed.cas(expected, false);
+        if (expected) {
+            clearChilds(childs);
+            waitForChilds(childs, Mode::EMERGENCE);
+            throw std::runtime_error("Error in worker process");
+        }
+    }
+};
 
 //TODO need this templates?
 template <typename R,
@@ -91,8 +118,10 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
 
     SharedArray<B> arr(range_size);
     std::vector<pid_t> childs;
+    FailedListener isFailed;
 
     for (int i = 0; i < nprocesses; i++) {
+        isFailed(childs);
         errno = 0;
         pid_t pid_f = fork();
 
@@ -101,12 +130,16 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
                 try {
                     worker_private(arr, range, position, work_size, f);
                 } catch (std::exception &e) {
+                    bool error = false;
+                    
+                    isFailed.failed.cas(error, true);
                     exit(EXIT_FAILURE);
                 }
                 exit(EXIT_SUCCESS);
             }
             case -1:
                 clearChilds(childs);
+                waitForChilds(childs, Mode::EMERGENCE);
                 throw std::runtime_error("Error with fork: " + std::string(strerror(errno)));
             default:
                 childs.push_back(pid_f);
@@ -114,9 +147,9 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<S
                 break;
         }
     }
-
     
     waitForChilds(childs);
+    isFailed(childs);
     return arr;
 }
 
@@ -134,8 +167,11 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
     SharedArray<B> arr(range_size);
     SharedAtomicVariable<size_t> sync_offset;
     std::vector<pid_t> childs;
+    FailedListener isFailed;
+    
 
     for (int i = 0; i < nprocesses; i++) {
+        isFailed(childs);
         errno = 0;
         pid_t pid_f = fork();
 
@@ -144,12 +180,15 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
                 try {
                     dynamic_worker_private(arr, range, f, sync_offset, 8);
                 } catch (std::exception &e) {
+                    bool error = false;
+                    isFailed.failed.cas(error, true);
                     exit(EXIT_FAILURE);
                 }
                 exit(EXIT_SUCCESS);
             }
             case -1:
                 clearChilds(childs);
+                waitForChilds(childs, Mode::EMERGENCE);
                 throw std::runtime_error("Error with fork: " + std::string(strerror(errno)));
             default:
                 childs.push_back(pid_f);
@@ -159,6 +198,8 @@ SharedArray<B> TransformWithProcesses(R&& range, F&& f, size_t nprocesses, Tag<D
     }
 
     waitForChilds(childs);
+    isFailed(childs);
+
     return arr;
 }
 

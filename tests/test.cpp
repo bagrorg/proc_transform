@@ -115,7 +115,8 @@ TEST(TransformTestsStatic, BigTest) {
 
 TEST(TransformTestsStatic, ErrorTest) {
     auto func = [](int x) {
-        return x / 0;
+        throw std::runtime_error("Test error");
+        return x;
     };
 
     std::vector<int> v(100, 1);
@@ -130,7 +131,8 @@ TEST(TransformTestsStatic, ErrorTest) {
 
 TEST(TransformTestsDynamic, ErrorTest) {
     auto func = [](int x) {
-        return x / 0;
+        throw std::runtime_error("Test error");
+        return x;
     };
 
     std::vector<int> v(100, 1);
