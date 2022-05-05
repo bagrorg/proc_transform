@@ -17,7 +17,7 @@ template <typename R>
 concept InputContiguousRange = std::ranges::contiguous_range<R>;
 
 template <typename F, typename A>
-concept StatelessFunction = std::invocable<F, A>; //?
+concept StatelessFunction = std::invocable<F, A>;
 
 template <typename R,
           typename F,
@@ -102,7 +102,6 @@ struct FailedListener {
     }
 };
 
-//TODO need this templates?
 template <typename R,
           typename F,
           typename A = std::ranges::range_value_t<R>,
